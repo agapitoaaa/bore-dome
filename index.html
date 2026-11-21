@@ -6,7 +6,7 @@
 <title>Bore Dome</title>
 <style>
   html,body{margin:0;height:100%;background:#0b1020;color:#cfe;font-family:monospace;overflow:hidden}
-  canvas{display:block;margin:0 auto;background:#0b1020;touch-action:none;max-width:100%}
+  canvas{display:block;margin:0 auto;width:100%;height:auto;max-height:100vh;object-fit:contain;-webkit-user-select:none;user-select:none;background:#0b1020;touch-action:none;max-width:100%}
 </style>
 </head>
 <body>
@@ -14,7 +14,8 @@
 <script>
 const c = document.getElementById('c'), ctx = c.getContext('2d');
 const W = c.width, H = c.height, cx = W / 2, cy = H - 20, DR = 46;
-let blobs, shots, parts, score, hp, t, over, aim = -Math.PI / 2, cooldown, best = +localStorage.getItem('boredome') || 0;
+let blobs, shots, parts, score, hp, t, over, aim = -Math.PI / 2, cooldown, best = 0;
+try { best = +localStorage.getItem('boredome') || 0; } catch (e) {}
 const WORDS = ['zzz', 'meh', 'ugh', 'idle', 'eh', 'yawn', 'nap'];
 
 function reset() { blobs = []; shots = []; parts = []; score = 0; hp = 5; t = 0; over = false; cooldown = 0; }
@@ -26,7 +27,10 @@ function pointer(e) {
   aim = Math.min(-0.1, Math.max(-Math.PI + 0.1, Math.atan2(y - cy, x - cx)));
 }
 c.addEventListener('pointermove', pointer);
-c.addEventListener('pointerdown', e => { pointer(e); if (over) reset(); else fire(); });
+let holding = false;
+c.addEventListener('pointerdown', e => { c.setPointerCapture(e.pointerId); pointer(e); if (over) reset(); else holding = true; });
+addEventListener('pointerup', () => holding = false);
+addEventListener('pointercancel', () => holding = false);
 addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') aim = Math.max(-Math.PI + 0.1, aim - 0.1);
   if (e.key === 'ArrowRight') aim = Math.min(-0.1, aim + 0.1);
@@ -48,6 +52,7 @@ function burst(x, y, col) {
 function update() {
   if (over) return;
   t++; cooldown--;
+  if (holding) fire();
   if (t % Math.max(15, 60 - Math.floor(score / 5)) === 0) {
     const big = Math.random() < 0.2;
     const x = 30 + Math.random() * (W - 60), a = Math.atan2(cy - 0, cx - x);
@@ -62,7 +67,7 @@ function update() {
       if (!s.dead && Math.hypot(b.x - s.x, b.y - s.y) < b.r + 3) { s.dead = true; b.hp--; burst(s.x, s.y, '#fe8'); }
     }
     if (b.hp <= 0) { b.dead = true; score += b.r > 15 ? 3 : 1; burst(b.x, b.y, '#8fc'); }
-    else if (Math.hypot(b.x - cx, b.y - cy) < b.r + DR) { b.dead = true; hp--; burst(b.x, b.y, '#f66'); if (hp <= 0) { over = true; if (score > best) { best = score; localStorage.setItem('boredome', best); } } }
+    else if (Math.hypot(b.x - cx, b.y - cy) < b.r + DR) { b.dead = true; hp--; burst(b.x, b.y, '#f66'); if (hp <= 0) { over = true; if (score > best) { best = score; try { localStorage.setItem('boredome', best); } catch (e) {} } } }
   }
   shots = shots.filter(s => !s.dead);
   blobs = blobs.filter(b => !b.dead);
@@ -95,10 +100,10 @@ function draw() {
     ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '32px monospace';
     ctx.fillText('Boredom wins.', cx, cy / 2 + 20);
-    ctx.font = '16px monospace'; ctx.fillText('Click / space to try again', cx, cy / 2 + 50);
+    ctx.font = '16px monospace'; ctx.fillText('Tap to try again', cx, cy / 2 + 50);
   } else if (t < 240) {
     ctx.fillStyle = '#9ab'; ctx.textAlign = 'center';
-    ctx.fillText('Aim with mouse or ←/→ · click or space to fire', cx, H - 90);
+    ctx.fillText('Touch and drag to aim and fire', cx, H - 90);
   }
 }
 
